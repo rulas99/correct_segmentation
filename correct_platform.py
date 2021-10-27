@@ -8,7 +8,10 @@ from dash.dependencies import Input, Output, State
 
 from skimage import io
 from glob import glob
-from numba import njit
+import numpy as np
+from skimage import draw
+from scipy import ndimage
+#from numba import njit
 
 from warnings import filterwarnings
 filterwarnings("ignore")
@@ -20,8 +23,8 @@ corr = glob('mask_correction/*_dtnC.png')
 
 evaN = []
 refN = []
-for i,j in zip(eva,ref):
-    imgN = f'mask_correction/{i.split("/")[1]}'
+for i, j in zip(eva, ref):
+    imgN = f'mask_correction/{i.split("/")[-1]}'
     if not f"{imgN[:imgN.rindex('.')]}C.png" in corr:
         evaN.append(i)
         refN.append(j)
@@ -30,61 +33,85 @@ counter = 1
 totalLen = len(refN)
 
 ix = 0
-imgR = io.imread(refN[ix]) 
+imgR = io.imread(refN[ix])
 imgE = io.imread(evaN[ix])
 imgE_c = imgE.copy()
 
-ref_img = px.imshow(imgR, binary_string=True, labels=dict(x=refN[ix].split('/')[1]))
-ref_img.update_xaxes(showticklabels=False,side='top')
+ref_img = px.imshow(imgR, binary_string=True, labels=dict(x=refN[ix].split('/')[-1]))
+ref_img.update_xaxes(showticklabels=False, side='top')
 ref_img.update_yaxes(showticklabels=False)
 
-eva_img = px.imshow(imgE, binary_string=True, labels=dict(x=evaN[ix].split('/')[1]))
-eva_img.update_layout(dragmode="drawrect")
-eva_img.update_xaxes(side='top',showticklabels=False)
+eva_img = px.imshow(imgE, binary_string=True, labels=dict(x=evaN[ix].split('/')[-1]))
+# eva_img.update_layout(dragmode="drawrect")
+eva_img.update_layout(dragmode="drawclosedpath")
+eva_img.update_xaxes(side='top', showticklabels=False)
 eva_img.update_yaxes(showticklabels=False)
 
 external_stylesheets = ['https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css',
-						 dbc.themes.BOOTSTRAP]
-app = Dash(__name__,  external_stylesheets=external_stylesheets)
+                        dbc.themes.BOOTSTRAP]
+app = Dash(__name__, external_stylesheets=external_stylesheets)
 
 app.layout = html.Div(
     [
-        html.Div(html.H3("Thermal anomalies correction"), style = {'margin': '15px 2px 2px 15px'}),
-        html.Div(html.H6(f"{counter} de {totalLen}",id="counter"), style = {'text-align':'center'}),
+        html.Div(html.H3("Thermal anomalies correction"), style={'margin': '15px 2px 2px 15px'}),
+        html.Div(html.H6(f"{counter} de {totalLen}", id="counter"), style={'text-align': 'center'}),
         html.Div(
-            [dcc.Graph(id="reference", figure=ref_img,style={'width': '750px', 'height': '750px'}),],
+            [dcc.Graph(id="reference", figure=ref_img, style={'width': '750px', 'height': '750px'}), ],
             style={"width": "50%", "display": "inline-block", "padding": "0 0"},
         ),
         html.Div(
-            [dcc.Graph(id="evaluated", figure=eva_img,style={'width': '750px', 'height': '750px'}),],
+            [dcc.Graph(id="evaluated", figure=eva_img, style={'width': '750px', 'height': '750px'}), ],
             style={"width": "50%", "display": "inline-block", "padding": "0 0"},
         ),
-    	dbc.Row([
-    		dbc.Col(html.Div([dbc.Button('Reset', id='reset', n_clicks=0, className='mr-1',
-                                size='md', style={'width': '130px','height': '40px','backgroundColor': '#CF7541',
-                                'border-color': '#C60D0D'})],style={'padding': '23px 1px 15px 1px', 'text-align': 'center',
-                                       'margin': '2px 2px 2px 2px'}),sm=4),
+        dbc.Row([
+                dbc.Col(html.Div([dbc.Button('Reset', id='reset', n_clicks=0, className='mr-1',
+                                             size='md', style={'width': '130px', 'height': '40px', 'backgroundColor': '#CF7541',
+                                                               'border-color': '#C60D0D'})], style={'padding': '23px 1px 15px 1px', 'text-align': 'center',
+                                                                                                    'margin': '2px 2px 2px 2px'}), sm=4),
 
-    		dbc.Col(html.Div([dbc.Button('Guardar y continuar', id='saveycont', n_clicks=0, className='mr-1',
-                                size='md', style={'width': '200px','height': '40px','backgroundColor': '#0DC675',
-                                'border-color': '#099211'})],style={'padding': '23px 1px 15px 1px', 'text-align': 'center',
-                                       'margin': '2px 2px 2px 2px'}),sm=4),
+                dbc.Col(html.Div([dbc.Button('Guardar y continuar', id='saveycont', n_clicks=0, className='mr-1',
+                                             size='md', style={'width': '200px', 'height': '40px', 'backgroundColor': '#0DC675',
+                                                               'border-color': '#099211'})], style={'padding': '23px 1px 15px 1px', 'text-align': 'center',
+                                                                                                    'margin': '2px 2px 2px 2px'}), sm=4),
 
-    		dbc.Col(html.Div([dbc.Button('Regresar', id='back', n_clicks=0, className='mr-1',
-                                size='md', style={'width': '130px','height': '40px','backgroundColor': '#7BA3AE',
-                                'border-color': '#376470'})],style={'padding': '23px 1px 15px 1px', 'text-align': 'center',
-                                       'margin': '2px 2px 2px 2px'}),sm=4),
-    		], no_gutters=True, justify='center')
+                dbc.Col(html.Div([dbc.Button('Regresar', id='back', n_clicks=0, className='mr-1',
+                                             size='md', style={'width': '130px', 'height': '40px', 'backgroundColor': '#7BA3AE',
+                                                               'border-color': '#376470'})], style={'padding': '23px 1px 15px 1px', 'text-align': 'center',
+                                                                                                    'margin': '2px 2px 2px 2px'}), sm=4),
+                ], justify='center')  # , no_gutters=True
     ]
 )
 
+'''
 @njit
-def changePixels(imgE_c,x0,x1,y0,y1):
-	for i in range(y0,y1+1):
-		for j in range(x0,x1+1):
-			imgE_c[i,j] = 0
+def changePixels(imgE_c, x0, x1, y0, y1):
+    for i in range(y0, y1 + 1):
+        for j in range(x0, x1 + 1):
+            imgE_c[i, j] = 0
 
-	return imgE_c
+    return imgE_c
+'''
+
+def path_to_indices(path):
+    """From SVG path to numpy array of coordinates, each row being a (row, col) point
+    """
+    indices_str = [
+        el.replace("M", "").replace("Z", "").split(",") for el in path.split("L")
+    ]
+    return np.rint(np.array(indices_str, dtype=float)).astype(np.int)
+
+
+def path_to_mask(path, shape):
+    """From SVG path to a boolean array where all pixels enclosed by the path
+    are True, and the other pixels are False.
+    """
+    cols, rows = path_to_indices(path).T
+    rr, cc = draw.polygon(rows, cols)
+    mask = np.zeros(shape, dtype=np.bool)
+    mask[rr, cc] = True
+    mask = ndimage.binary_fill_holes(mask)
+    return mask
+
 
 @app.callback(
     Output("evaluated", "figure"),
@@ -97,75 +124,80 @@ def changePixels(imgE_c,x0,x1,y0,y1):
     prevent_initial_call=True,
 )
 def on_new_annotation(relayout_data, reset, saveycont, back):
-	global imgE_c, ix, eva_img, ref_img, imgE_c, imgE, counter
+    global imgE_c, ix, eva_img, ref_img, imgE_c, imgE, counter
 
-	changed_id = [p['prop_id'] for p in callback_context.triggered][0]
+    changed_id = [p['prop_id'] for p in callback_context.triggered][0]
 
-	if 'reset' in changed_id:
-		imgE_c = imgE.copy()
-		return eva_img, ref_img, f"{counter} de {len(refN)}"
+    if 'reset' in changed_id:
+        imgE_c = imgE.copy()
+        return eva_img, ref_img, f"{counter} de {len(refN)}"
 
-	elif 'saveycont' in changed_id:
-		ix += 1
+    elif 'saveycont' in changed_id:
 
-		rut = evaN[ix].split('/')[1]
-		rut = f"mask_correction/{rut[:rut.rindex('.')]}C.png"
-		io.imsave(rut,imgE_c)
+        rut = evaN[ix].split('/')[-1]
+        rut = f"mask_correction/{rut[:rut.rindex('.')]}C.png"
+        io.imsave(rut, imgE_c)
+        #print('saved {}'.format(rut))
 
-		imgR = io.imread(refN[ix]) 
-		imgE = io.imread(evaN[ix])
-		imgE_c = imgE.copy()
+        ix += 1
+        imgR = io.imread(refN[ix])
+        imgE = io.imread(evaN[ix])
+        imgE_c = imgE.copy()
 
-		ref_img = px.imshow(imgR, binary_string=True, labels=dict(x=refN[ix].split('/')[1]))
-		ref_img.update_xaxes(showticklabels=False,side='top')
-		ref_img.update_yaxes(showticklabels=False)
+        ref_img = px.imshow(imgR, binary_string=True, labels=dict(x=refN[ix].split('/')[-1]))
+        ref_img.update_xaxes(showticklabels=False, side='top')
+        ref_img.update_yaxes(showticklabels=False)
 
-		eva_img = px.imshow(imgE, binary_string=True, labels=dict(x=evaN[ix].split('/')[1]))
-		eva_img.update_layout(dragmode="drawrect")
-		eva_img.update_xaxes(side='top',showticklabels=False)
-		eva_img.update_yaxes(showticklabels=False)
+        eva_img = px.imshow(imgE, binary_string=True, labels=dict(x=evaN[ix].split('/')[-1]))
+        # eva_img.update_layout(dragmode="drawrect")
+        eva_img.update_layout(dragmode="drawclosedpath")
+        eva_img.update_xaxes(side='top', showticklabels=False)
+        eva_img.update_yaxes(showticklabels=False)
 
+        counter += 1
+        return eva_img, ref_img, f"{counter} de {totalLen}"
 
+    elif 'back' in changed_id:
+        ix -= 1
+        imgR = io.imread(refN[ix])
+        imgE = io.imread(evaN[ix])
+        imgE_c = imgE.copy()
 
-		counter += 1
-		return eva_img, ref_img, f"{counter} de {totalLen}"
+        ref_img = px.imshow(imgR, binary_string=True, labels=dict(x=refN[ix].split('/')[-1]))
+        ref_img.update_xaxes(showticklabels=False, side='top')
+        ref_img.update_yaxes(showticklabels=False)
 
-	elif 'back' in changed_id:
-		ix -= 1
-		imgR = io.imread(refN[ix]) 
-		imgE = io.imread(evaN[ix])
-		imgE_c = imgE.copy()
+        eva_img = px.imshow(imgE, binary_string=True, labels=dict(x=evaN[ix].split('/')[-1]))
+        # eva_img.update_layout(dragmode="drawrect")
+        eva_img.update_layout(dragmode="drawclosedpath")
+        eva_img.update_xaxes(side='top', showticklabels=False)
+        eva_img.update_yaxes(showticklabels=False)
 
-		ref_img = px.imshow(imgR, binary_string=True, labels=dict(x=refN[ix].split('/')[1]))
-		ref_img.update_xaxes(showticklabels=False,side='top')
-		ref_img.update_yaxes(showticklabels=False)
+        counter -= 1
 
-		eva_img = px.imshow(imgE, binary_string=True, labels=dict(x=evaN[ix].split('/')[1]))
-		eva_img.update_layout(dragmode="drawrect")
-		eva_img.update_xaxes(side='top',showticklabels=False)
-		eva_img.update_yaxes(showticklabels=False)
+        return eva_img, ref_img, f"{counter} de {totalLen}"
 
-		counter -= 1
+    elif "shapes" in relayout_data:
 
-		return eva_img, ref_img, f"{counter} de {totalLen}"
+        last_shape = relayout_data["shapes"][-1]
 
-	elif "shapes" in relayout_data:
+        # x0, y0 = round(last_shape["x0"]), round(last_shape["y0"])
+        # x1, y1 = round(last_shape["x1"]), round(last_shape["y1"])
+        # imgE_c = changePixels(imgE_c, x0, x1, y0, y1)
 
-		last_shape = relayout_data["shapes"][-1]
-		x0, y0 = round(last_shape["x0"]), round(last_shape["y0"])
-		x1, y1 = round(last_shape["x1"]), round(last_shape["y1"])
+        maskpath = path_to_mask(last_shape["path"], imgE_c.shape)
+        imgE_c[maskpath] = 0  # >> set 0 (=black=no detection) inside closed path
 
-		imgE_c = changePixels(imgE_c,x0,x1,y0,y1)
+        eva_imgC = px.imshow(imgE_c, binary_string=True, labels=dict(x=evaN[ix].split('/')[-1]))
+        # eva_imgC.update_layout(dragmode="drawrect")
+        eva_imgC.update_layout(dragmode="drawclosedpath")
+        eva_imgC.update_xaxes(side='top', showticklabels=False)
+        eva_imgC.update_yaxes(showticklabels=False)
 
-		eva_imgC = px.imshow(imgE_c, binary_string=True, labels=dict(x=evaN[ix].split('/')[1]))
-		eva_imgC.update_layout(dragmode="drawrect")
-		eva_imgC.update_xaxes(side='top',showticklabels=False)
-		eva_imgC.update_yaxes(showticklabels=False)
+        return eva_imgC, ref_img, f"{counter} de {totalLen}"
 
-		return eva_imgC, ref_img, f"{counter} de {totalLen}"
-
-	else:
-		return dash.no_update
+    else:
+        return dash.no_update
 
 
 if __name__ == "__main__":
