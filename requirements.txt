@@ -1,0 +1,8 @@
+plotly==4.14.3
+dash==1.19.0
+dash_core_components==1.15.0 
+dash_bootstrap_components==0.11.3
+dash_html_component==1.1.2 
+glob2==0.7
+numba==0.53.1
+skimage==0.16.2
